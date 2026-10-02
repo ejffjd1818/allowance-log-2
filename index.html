@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Smart Pocket - 스마트 용돈기입장</title>
+    <meta name="description" content="AI 기반 PDF 거래내역 자동 인식, 달력 뷰, 스마트 통계 분석을 제공하는 프리미엄 용돈기입장">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="styles.css">
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- PDF.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    </script>
+    
+    <!-- jsPDF for Sample PDF Generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <!-- SheetJS (xlsx) for Excel / CSV Parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body class="dark-theme">
+    <div id="app" class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-logo">
+                    <i class="fa-solid fa-wallet"></i>
+                </div>
+                <div class="brand-text">
+                    <h2>SmartPocket<span>.ai</span></h2>
+                    <p>스마트 AI 용돈기입장</p>
+                </div>
+            </div>
+
+            <!-- Balance Summary Widget -->
+            <div class="balance-card">
+                <span class="balance-label">이번 달 잔액</span>
+                <div class="balance-amount" id="sidebar-balance">₩0</div>
+                <div class="balance-sub">
+                    <span class="income-badge"><i class="fa-solid fa-arrow-down"></i> <span id="sidebar-income">₩0</span></span>
+                    <span class="expense-badge"><i class="fa-solid fa-arrow-up"></i> <span id="sidebar-expense">₩0</span></span>
+                </div>
+            </div>
+
+            <nav class="nav-menu">
+                <button class="nav-item active" data-tab="calendar">
+                    <i class="fa-regular fa-calendar-days"></i>
+                    <span>달력 뷰</span>
+                </button>
+                <button class="nav-item" data-tab="statistics">
+                    <i class="fa-solid fa-chart-pie"></i>
+                    <span>통계 & 분석</span>
+                </button>
+                <button class="nav-item" data-tab="history">
+                    <i class="fa-solid fa-list-check"></i>
+                    <span>거래 내역 목록</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-action">
+                <button class="btn btn-ai-pdf" id="btn-open-pdf-modal">
+                    <i class="fa-solid fa-file-invoice"></i>
+                    <span>PDF/엑셀 AI 자동 입력</span>
+                    <span class="ai-sparkle">AI</span>
+                </button>
+            </div>
+
+            <div class="sidebar-footer">
+                <button id="theme-toggle-btn" class="icon-btn-text">
+                    <i class="fa-solid fa-sun" id="theme-icon"></i>
+                    <span id="theme-text">라이트 모드</span>
+                </button>
+                <button id="btn-reset-data" class="icon-btn-text danger-text" title="데이터 초기화">
+                    <i class="fa-solid fa-arrow-rotate-left"></i>
+                    <span>초기화</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Top Bar -->
+            <header class="top-bar">
+                <div class="page-title">
+                    <h1 id="current-view-title">📅 달력 뷰</h1>
+                    <span class="sub-heading" id="current-period-text">2026년 10월</span>
+                </div>
+
+                <div class="top-controls">
+                    <!-- Quick Month Navigator -->
+                    <div class="month-selector">
+                        <button class="icon-btn" id="prev-month-btn"><i class="fa-solid fa-chevron-left"></i></button>
+                        <span id="current-month-display" class="month-text">2026년 10월</span>
+                        <button class="icon-btn" id="next-month-btn"><i class="fa-solid fa-chevron-right"></i></button>
+                        <button class="btn btn-sm btn-secondary" id="today-btn">오늘</button>
+                    </div>
+
+                    <button class="btn btn-primary" id="btn-add-transaction">
+                        <i class="fa-solid fa-plus"></i>
+                        <span>내역 추가</span>
+                    </button>
+                </div>
+            </header>
+
+            <!-- TAB 1: CALENDAR VIEW -->
+            <section id="tab-calendar" class="tab-page active">
+                <div class="calendar-card glass-panel">
+                    <!-- Calendar Header (Days of week) -->
+                    <div class="calendar-weekdays">
+                        <div class="weekday sunday">일</div>
+                        <div class="weekday">월</div>
+                        <div class="weekday">화</div>
+                        <div class="weekday">수</div>
+                        <div class="weekday">목</div>
+                        <div class="weekday">금</div>
+                        <div class="weekday saturday">토</div>
+                    </div>
+                    <!-- Calendar Days Grid -->
+                    <div class="calendar-grid" id="calendar-grid">
+                        <!-- Dynamic Calendar Cells -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 2: STATISTICS VIEW -->
+            <section id="tab-statistics" class="tab-page">
+                <!-- Overview Metric Cards -->
+                <div class="metrics-row">
+                    <div class="metric-card glass-panel">
+                        <div class="metric-icon income-icon"><i class="fa-solid fa-wallet"></i></div>
+                        <div class="metric-info">
+                            <span class="metric-label">총 수입</span>
+                            <h3 class="metric-value text-income" id="stat-total-income">₩0</h3>
+                        </div>
+                    </div>
+                    <div class="metric-card glass-panel">
+                        <div class="metric-icon expense-icon"><i class="fa-solid fa-cart-shopping"></i></div>
+                        <div class="metric-info">
+                            <span class="metric-label">총 지출</span>
+                            <h3 class="metric-value text-expense" id="stat-total-expense">₩0</h3>
+                        </div>
+                    </div>
+                    <div class="metric-card glass-panel">
+                        <div class="metric-icon net-icon"><i class="fa-solid fa-piggy-bank"></i></div>
+                        <div class="metric-info">
+                            <span class="metric-label">순 수지 (수입 - 지출)</span>
+                            <h3 class="metric-value" id="stat-net-balance">₩0</h3>
+                        </div>
+                    </div>
+                    <div class="metric-card glass-panel">
+                        <div class="metric-icon avg-icon"><i class="fa-solid fa-calculator"></i></div>
+                        <div class="metric-info">
+                            <span class="metric-label">일평균 지출</span>
+                            <h3 class="metric-value" id="stat-daily-avg">₩0</h3>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Budget Bar Widget -->
+                <div class="budget-panel glass-panel">
+                    <div class="budget-header">
+                        <div>
+                            <h4><i class="fa-solid fa-bullseye"></i> 이달의 목표 예산 설정</h4>
+                            <span class="text-sub" id="budget-status-text">예산 대비 지출 65% 사용 중</span>
+                        </div>
+                        <div class="budget-controls">
+                            <span>목표 예산: ₩</span>
+                            <input type="number" id="budget-input" value="800000" step="50000" class="input-sm">
+                            <button class="btn btn-sm btn-outline" id="btn-save-budget">설정</button>
+                        </div>
+                    </div>
+                    <div class="progress-bar-bg">
+                        <div class="progress-bar-fill" id="budget-progress-fill" style="width: 0%;"></div>
+                    </div>
+                </div>
+
+                <!-- Charts Layout Grid -->
+                <div class="charts-grid">
+                    <!-- Category Doughnut Chart -->
+                    <div class="chart-card glass-panel">
+                        <div class="chart-header">
+                            <h3><i class="fa-solid fa-chart-pie"></i> 카테고리별 지출 비중</h3>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="category-chart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Daily Trend Bar Chart -->
+                    <div class="chart-card glass-panel">
+                        <div class="chart-header">
+                            <h3><i class="fa-solid fa-chart-column"></i> 일별 지출 추이</h3>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="daily-trend-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Category Breakdown Table & Top Expenses -->
+                <div class="stats-detail-grid">
+                    <div class="glass-panel detail-card">
+                        <h3><i class="fa-solid fa-layer-group"></i> 카테고리 세부 내역</h3>
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>카테고리</th>
+                                        <th>건수</th>
+                                        <th>총액</th>
+                                        <th>비율</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="category-table-body">
+                                    <!-- Dynamic Rows -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="glass-panel detail-card">
+                        <h3><i class="fa-solid fa-trophy"></i> 이달의 지출 TOP 5</h3>
+                        <ul class="top-expenses-list" id="top-expenses-list">
+                            <!-- Dynamic Items -->
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 3: HISTORY LIST VIEW -->
+            <section id="tab-history" class="tab-page">
+                <div class="glass-panel history-container">
+                    <div class="history-filter-bar">
+                        <div class="search-box">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <input type="text" id="history-search" placeholder="거래처/내용 검색 (예: 스타벅스, 용돈)">
+                        </div>
+                        <div class="filter-controls">
+                            <select id="history-filter-type">
+                                <option value="all">전체 (수입+지출)</option>
+                                <option value="expense">지출만</option>
+                                <option value="income">수입만</option>
+                            </select>
+                            <select id="history-filter-category">
+                                <option value="all">전체 카테고리</option>
+                                <!-- Populated dynamically -->
+                            </select>
+                            <button class="btn btn-sm btn-outline danger-text" id="btn-delete-selected-history" disabled>
+                                <i class="fa-solid fa-trash-can"></i> <span>선택 삭제 (<strong id="history-selected-count">0</strong>건)</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="history-list-wrapper">
+                        <table class="data-table history-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 40px;"><input type="checkbox" id="history-check-all" title="전체 선택"></th>
+                                    <th>날짜</th>
+                                    <th>구분</th>
+                                    <th>카테고리</th>
+                                    <th>거래처 / 내용</th>
+                                    <th>금액</th>
+                                    <th>관리</th>
+                                </tr>
+                            </thead>
+                            <tbody id="history-table-body">
+                                <!-- Dynamic List Rows -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- MODAL 1: ADD/EDIT TRANSACTION MODAL -->
+    <div class="modal-backdrop" id="modal-transaction">
+        <div class="modal-card glass-panel">
+            <div class="modal-header">
+                <h3 id="modal-tx-title"><i class="fa-solid fa-pen-to-square"></i> 거래 내역 추가</h3>
+                <button class="icon-btn modal-close-btn" data-close="modal-transaction">&times;</button>
+            </div>
+            <form id="form-transaction">
+                <input type="hidden" id="tx-id">
+                
+                <div class="form-group type-toggle-group">
+                    <label>구분</label>
+                    <div class="type-toggle-buttons">
+                        <button type="button" class="btn-type active expense" data-type="expense">지출</button>
+                        <button type="button" class="btn-type income" data-type="income">수입</button>
+                    </div>
+                    <input type="hidden" id="tx-type" value="expense">
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="tx-date">날짜</label>
+                        <input type="date" id="tx-date" required class="input-field">
+                    </div>
+                    <div class="form-group">
+                        <label for="tx-amount">금액 (원)</label>
+                        <input type="number" id="tx-amount" placeholder="0" required min="1" step="1" class="input-field">
+                    </div>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="tx-category">카테고리</label>
+                        <select id="tx-category" required class="input-field">
+                            <!-- Populated dynamically -->
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="tx-title">거래처 / 사용처</label>
+                        <input type="text" id="tx-title" placeholder="예: 스타벅스, 편의점, 용돈" required class="input-field">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="tx-memo">메모 (선택)</label>
+                    <input type="text" id="tx-memo" placeholder="추가 메모 입력" class="input-field">
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary modal-close-btn" data-close="modal-transaction">취소</button>
+                    <button type="submit" class="btn btn-primary">저장하기</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 2: DAY DETAIL DRAWER/MODAL -->
+    <div class="modal-backdrop" id="modal-day-detail">
+        <div class="modal-card glass-panel">
+            <div class="modal-header">
+                <h3><i class="fa-regular fa-calendar-check"></i> <span id="day-detail-date">2026-10-02</span> 내역</h3>
+                <button class="icon-btn modal-close-btn" data-close="modal-day-detail">&times;</button>
+            </div>
+            <div class="day-detail-body">
+                <div class="day-summary-badges">
+                    <span class="badge badge-income">수입 +<span id="day-sum-income">₩0</span></span>
+                    <span class="badge badge-expense">지출 -<span id="day-sum-expense">₩0</span></span>
+                </div>
+
+                <div class="day-items-list" id="day-items-list">
+                    <!-- Dynamic Day Items -->
+                </div>
+            </div>
+            <div class="modal-footer justify-between">
+                <button class="btn btn-sm btn-primary" id="btn-add-for-day">
+                    <i class="fa-solid fa-plus"></i> 이 날짜에 내역 추가
+                </button>
+                <button class="btn btn-sm btn-secondary modal-close-btn" data-close="modal-day-detail">닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 3: AI PDF STATEMENT IMPORT MODAL -->
+    <div class="modal-backdrop" id="modal-pdf-import">
+        <div class="modal-card glass-panel modal-lg">
+            <div class="modal-header">
+                <div class="ai-modal-header-title">
+                    <i class="fa-solid fa-wand-magic-sparkles text-ai"></i>
+                    <div>
+                        <h3>거래내역증명서 (PDF / 엑셀) AI 자동 인식</h3>
+                        <p class="sub-text">은행/카드사 거래내역서 PDF 또는 엑셀(XLSX, CSV) 파일만 올려주시면 AI가 자동으로 내역을 추출합니다.</p>
+                    </div>
+                </div>
+                <button class="icon-btn modal-close-btn" data-close="modal-pdf-import">&times;</button>
+            </div>
+
+            <div class="pdf-modal-body">
+                <!-- Step 1: Upload Zone -->
+                <div id="pdf-step-upload" class="pdf-step active">
+                    <!-- Mode Switcher Tabs -->
+                    <div class="pdf-mode-tabs" style="display: flex; gap: 8px; margin-bottom: 16px;">
+                        <button class="btn btn-sm btn-outline active" id="pdf-tab-file-btn" style="flex: 1;"><i class="fa-solid fa-file-excel"></i> PDF / 엑셀 파일 업로드</button>
+                        <button class="btn btn-sm btn-outline" id="pdf-tab-text-btn" style="flex: 1;"><i class="fa-solid fa-paste"></i> 텍스트 직접 붙여넣기</button>
+                    </div>
+
+                    <!-- Mode A: Drop Zone -->
+                    <div id="pdf-upload-mode-file">
+                        <div class="drop-zone" id="pdf-drop-zone">
+                            <i class="fa-solid fa-file-excel drop-icon" style="color: #10b981;"></i>
+                            <h4>거래내역 PDF 또는 엑셀(XLSX, XLS, CSV) 파일 선택</h4>
+                            <p>KB국민, 신한, 카카오뱅크, 토스, 현대카드 등 PDF 및 엑셀 내역서 지원</p>
+                            <input type="file" id="pdf-file-input" accept=".pdf, .xlsx, .xls, .csv" class="file-input-hidden">
+                            
+                            <div class="or-divider"><span>OR</span></div>
+                            
+                            <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
+                                <button class="btn btn-ai-sparkle" id="btn-load-sample-pdf">
+                                    <i class="fa-solid fa-file-pdf"></i>
+                                    <span>샘플 PDF로 분석 테스트</span>
+                                </button>
+                                <button class="btn btn-ai-sparkle" id="btn-load-sample-excel" style="background: linear-gradient(135deg, #10b981, #059669);">
+                                    <i class="fa-solid fa-file-excel"></i>
+                                    <span>샘플 엑셀(XLSX)로 분석 테스트</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Mode B: Text Paste Zone -->
+                    <div id="pdf-upload-mode-text" style="display: none;">
+                        <div class="form-group">
+                            <label for="pdf-paste-input">은행/카드사 거래 내역 텍스트를 복사하여 붙여넣으세요:</label>
+                            <textarea id="pdf-paste-input" rows="8" class="input-field" placeholder="예시:&#10;2026.10.02 스타벅스 -6,500원&#10;2026.10.03 GS25 편의점 -4,500원&#10;2026.10.05 알바비 입금 +240,000원"></textarea>
+                        </div>
+                        <button class="btn btn-primary" id="btn-parse-pasted-text" style="width: 100%;">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> <span>붙여넣은 텍스트 AI 분석 시작</span>
+                        </button>
+                    </div>
+
+                    <div class="pdf-sample-generator-box" style="margin-top: 16px;">
+                        <span class="box-title"><i class="fa-solid fa-circle-info"></i> PDF 인식이 잘 안 될 때 안내</span>
+                        <p>보안 PDF이거나 이미지 형태의 PDF인 경우 <strong>[텍스트 직접 붙여넣기]</strong> 탭을 클릭하여 은행 앱/사이트의 내역 텍스트를 복사해 넣으시면 100% 인식됩니다.</p>
+                    </div>
+                </div>
+
+                <!-- Step 2: AI Processing Indicator -->
+                <div id="pdf-step-processing" class="pdf-step">
+                    <div class="ai-loading-container">
+                        <div class="ai-scanner-animation">
+                            <i class="fa-solid fa-file-pdf pdf-icon"></i>
+                            <div class="scan-line"></div>
+                        </div>
+                        <h4 class="ai-loading-status" id="ai-status-text">AI가 PDF 문서 텍스트 추출 중...</h4>
+                        <div class="ai-progress-bar">
+                            <div class="ai-progress-fill" id="ai-progress-fill"></div>
+                        </div>
+                        <ul class="ai-check-list" id="ai-check-list">
+                            <li id="check-step-1"><i class="fa-solid fa-spinner fa-spin"></i> PDF 텍스트 구조 분석</li>
+                            <li id="check-step-2"><i class="fa-regular fa-circle"></i> 거래 날짜 / 거래처 / 금액 패턴 추출</li>
+                            <li id="check-step-3"><i class="fa-regular fa-circle"></i> 지출/수입 카테고리 AI 자동 분류</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Step 3: Review & Import Table -->
+                <div id="pdf-step-result" class="pdf-step">
+                    <div class="result-header">
+                        <span class="badge badge-ai-success"><i class="fa-solid fa-circle-check"></i> AI 분석 완료: <strong id="parsed-count">0</strong>건 추출됨</span>
+                        <button class="btn btn-sm btn-outline" id="btn-reupload-pdf"><i class="fa-solid fa-rotate-left"></i> 다른 파일 선택</button>
+                    </div>
+
+                    <div class="table-responsive parsed-table-wrapper">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th><input type="checkbox" id="check-all-parsed" checked></th>
+                                    <th>날짜</th>
+                                    <th>구분</th>
+                                    <th>거래처</th>
+                                    <th>AI 추정 카테고리</th>
+                                    <th>금액</th>
+                                </tr>
+                            </thead>
+                            <tbody id="parsed-items-body">
+                                <!-- Dynamic parsed rows -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="modal-footer justify-between">
+                        <span class="text-sub" id="selected-import-count">선택된 0건</span>
+                        <div>
+                            <button class="btn btn-secondary modal-close-btn" data-close="modal-pdf-import">취소</button>
+                            <button class="btn btn-primary" id="btn-confirm-import"><i class="fa-solid fa-file-import"></i> 선택한 내역 용돈기입장에 등록</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast hidden">
+        <i class="fa-solid fa-circle-check" id="toast-icon"></i>
+        <span id="toast-message">메시지</span>
+    </div>
+
+    <!-- JavaScript Files -->
+    <script src="js/data.js"></script>
+    <script src="js/pdfParser.js"></script>
+    <script src="js/calendar.js"></script>
+    <script src="js/statistics.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
